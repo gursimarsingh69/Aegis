@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv
+venv
+ENV
+bin/
+
+# Environment Variables (CRITICAL)
+.env
+.env.*
+!.env.example
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Aegis Local Data (Do not sync your local detection history)
+engine/db.json
+engine/assets/*
+!engine/assets/.gitkeep
+engine/suspicious/*
+!engine/suspicious/.gitkeep
+crawler_pipeline/downloads/*
+!crawler_pipeline/downloads/.gitkeep
+
+# Logs
+*.log
+crawler_pipeline/logs/
+
+# OS
+.DS_Store
+Thumbs.db
