@@ -213,6 +213,12 @@ async def compare(
                 "_engine": ai_result.get("_engine", "unknown")
             }
 
+        return {
+            "match": False,
+            "confidence": 0,
+            "matched_asset_id": None,
+            "reason": "AI Engine unavailable or failed.",
+            "modifications": [],
         }
 
     finally:
