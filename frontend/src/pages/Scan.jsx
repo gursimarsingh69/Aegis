@@ -53,13 +53,6 @@ export default function Scan({ addToast }) {
     <div>
       <h1 className="page-title">Manual Scan</h1>
 
-      {scanning && (
-        <div className="loading-overlay">
-          <div className="spinner" />
-          <span>Analyzing with Gemini AI…</span>
-        </div>
-      )}
-
       <div className="scan-layout">
         {/* Left: Upload */}
         <div className="skeu-card">
@@ -99,22 +92,40 @@ export default function Scan({ addToast }) {
         </div>
 
         {/* Right: Result */}
-        <div className="skeu-card">
+        <div className="skeu-card" style={{ position: 'relative', minHeight: 300 }}>
           <h2 className="section-title">AI Verdict</h2>
 
-          {!result ? (
+          {scanning ? (
+            <div className="inline-loader">
+              <div className="spinner" />
+              <p>Analyzing with Gemini AI…</p>
+            </div>
+          ) : !result ? (
             <div className="activity-empty">
               Upload and scan an image to see the AI verdict here.
             </div>
           ) : (
             <>
               <div className={`verdict-badge ${result.match ? 'match' : 'clean'}`}>
-                {result.match ? '🚨 Infringement Detected' : '✅ Clean — No Match'}
+                {result.match ? (result.confidence >= 99 ? '✅ VERIFIED ORIGINAL' : '🚨 ALTERATION DETECTED') : '✅ CLEAN — NO MATCH'}
               </div>
 
-              <div className="confidence-bar-wrap">
-                <div className="confidence-bar" style={{ width: `${result.confidence}%` }} />
-                <span className="confidence-text">{result.confidence}%</span>
+              <div className="metrics-row">
+                <div className="metric-item">
+                  <div className="confidence-label">Alteration Index</div>
+                  <div className="confidence-bar-wrap">
+                    <div className="confidence-bar secondary" style={{ width: `${result.alteration || 0}%` }} />
+                    <span className="confidence-text">{result.alteration || 0}%</span>
+                  </div>
+                </div>
+                
+                <div className="metric-item">
+                  <div className="confidence-label">Match Confidence</div>
+                  <div className="confidence-bar-wrap">
+                    <div className="confidence-bar" style={{ width: `${result.confidence || 0}%` }} />
+                    <span className="confidence-text">{result.confidence || 0}%</span>
+                  </div>
+                </div>
               </div>
 
               <div className="verdict-reason">{result.reason}</div>

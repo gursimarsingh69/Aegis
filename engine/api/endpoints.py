@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import datetime
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
@@ -89,10 +90,17 @@ async def scan(file: UploadFile = File(...)):
             "modifications": []
         }
 
-    # ─── 1. pHash Sieve (The "Sieve") ────────────────────────────────────────
-    # Calculate hash for the new suspicious image
+    # ─── 1. pHash Sieve (Now with Rotational Invariance) ──────────────
+    def get_rotational_hashes(path):
+        img = Image.open(path).convert('L') # Force grayscale for consistency
+        hashes = []
+        for angle in [0, 90, 180, 270]:
+            rotated = img.rotate(angle, expand=True)
+            hashes.append(str(imagehash.phash(rotated)))
+        return hashes
+
     try:
-        susp_phash = str(imagehash.phash(Image.open(suspicious_path)))
+        susp_hashes = await asyncio.to_thread(get_rotational_hashes, suspicious_path)
     except Exception as e:
         return {"match": False, "confidence": 0, "reason": f"Error processing image: {e}", "modifications": []}
 
@@ -100,37 +108,47 @@ async def scan(file: UploadFile = File(...)):
     candidates = []
     for asset in db["assets"]:
         asset_phash = imagehash.hex_to_hash(asset["phash"])
-        target_phash = imagehash.hex_to_hash(susp_phash)
-        distance = asset_phash - target_phash # Hamming distance
+        
+        # Check against all 4 rotations and take the best match
+        best_dist = 99
+        for s_hash_hex in susp_hashes:
+            dist = asset_phash - imagehash.hex_to_hash(s_hash_hex)
+            if dist < best_dist:
+                best_dist = dist
+        
         candidates.append({
             "asset": asset,
-            "distance": distance
+            "distance": best_dist
         })
 
     # Sort by distance (lowest distance = most similar)
     candidates.sort(key=lambda x: x["distance"])
     
-    # Take only the top 3 most similar assets to send to Gemini
-    # This prevents the "Token Spike" by keeping the prompt small
-    top_candidates = [c["asset"] for c in candidates[:3]]
+    # Take top 5 candidates to give AI more context
+    top_candidates = [c["asset"] for c in candidates[:5]]
     
-    # If the closest match is extremely far away (e.g. > 30), it's probably not worth AI time
-    if candidates[0]["distance"] > 35:
-        # We still run Gemini just in case of heavy modification, 
-        # but we've successfully filtered out the 97% that definitely don't match.
-        pass
-
     # ─── 2. AI Verification ──────────────────────────────────────────────────
     from core.ai_engine import verify_semantic_match_with_gemini
     ai_result = await verify_semantic_match_with_gemini(suspicious_path, top_candidates)
     
     if ai_result:
+        # Use AI-provided alteration_score; fallback is proportional to modification count only
+        raw_alteration = ai_result.get("alteration_score")
+        if raw_alteration is None or raw_alteration == 0:
+            mods = [m for m in ai_result.get("modifications", []) if m.lower() not in ["none", ""]]
+            if mods:
+                raw_alteration = min(100, len(mods) * 20)
+            else:
+                raw_alteration = 0
+
         result = {
             "match": ai_result.get("match", False),
             "confidence": ai_result.get("similarity_score", 0),
+            "alteration": raw_alteration,
             "matched_asset": ai_result.get("matched_asset_id"),
             "reason": ai_result.get("reason", "Analyzed via AI."),
-            "modifications": ai_result.get("modifications", [])
+            "modifications": ai_result.get("modifications", []),
+            "_engine": ai_result.get("_engine", "unknown")
         }
     else:
         result = {
