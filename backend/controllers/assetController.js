@@ -38,9 +38,12 @@ const assetController = {
       // Auto-detect type from MIME if not explicitly provided
       const type = result.data.type || (file.mimetype.startsWith('video/') ? 'video' : 'image');
 
+      // Auto-generate name from filename if not provided (crawler seeding flow)
+      const name = result.data.name || file.originalname.replace(/\.[^.]+$/, '') || `asset_${Date.now()}`;
+
       // Delegate to service — it handles AI call + DB insert
       const asset = await assetService.registerAsset({
-        name: result.data.name,
+        name,
         type,
         fileBuffer: file.buffer,
         filename: file.originalname,
@@ -72,6 +75,34 @@ const assetController = {
 
       // Delegate to service — it handles AI comparison + detection/alert DB writes
       const matchResult = await assetService.scanMedia(result.data);
+
+      return res.json({ success: true, data: matchResult });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // FLOW 2b: POST /api/assets/scan/file — Scan raw file upload from crawler
+  // Crawler sends: multipart/form-data with file + url + source
+  // Backend compares via AI Engine and stores detection + alert in Supabase
+  // ──────────────────────────────────────────────────────────────────────────
+  async scanFile(req, res, next) {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ success: false, error: 'No file uploaded.' });
+      }
+
+      const url = req.body.url || 'unknown';
+      const source = req.body.source || 'crawler';
+
+      const matchResult = await assetService.scanFile({
+        fileBuffer: file.buffer,
+        filename: file.originalname,
+        url,
+        source,
+      });
 
       return res.json({ success: true, data: matchResult });
     } catch (err) {

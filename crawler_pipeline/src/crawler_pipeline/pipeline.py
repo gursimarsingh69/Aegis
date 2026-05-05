@@ -75,28 +75,43 @@ class APISender:
         exceptions=(aiohttp.ClientError, asyncio.TimeoutError),
     )
     async def _post(self, item: MediaItem) -> dict:
-        """POST the actual media file to the Detection API with retry."""
+        """POST the media file to the Backend API with retry."""
         timeout = aiohttp.ClientTimeout(total=PipelineConfig.REQUEST_TIMEOUT_SECONDS)
-        
-        # We use multipart/form-data to send the actual image bytes to Akasha Engine
-        # Added a sub-second timestamp to ensure unique filenames during high-speed crawls
+
+        # Sub-second timestamp ensures unique filenames during high-speed crawls
         unique_filename = f"scan_{int(time.time() * 1000)}.{item.file_extension}"
-        
-        data = aiohttp.FormData()
-        data.add_field('file', 
-                       item.raw_bytes if item.raw_bytes else b'', 
-                       filename=unique_filename,
-                       content_type=item.content_type)
-        
+
         # ROUTING LOGIC:
-        # Stock sources (Unsplash, Pexels, Pixabay, Shutterstock, Getty) -> /register (Seeding the DB)
-        # Social sources (Reddit, Twitter, etc.) -> /scan (Detection phase)
+        # Stock sources (Unsplash, Pexels, Pixabay, Shutterstock, Getty)
+        #   → POST /api/assets  (seed the asset vault, auto-name from filename)
+        # Social sources (Reddit, Twitter, etc.)
+        #   → POST /api/assets/scan/file  (detection: compare + write to Supabase)
         stock_sources = ["unsplash", "pexels", "pixabay", "shutterstock", "getty"]
-        
-        endpoint = "/register" if item.source.lower() in stock_sources else "/scan"
-        target_url = f"{ApiConfig.BASE_URL}{endpoint}"
-        
-        self._log.info("[%s] STEP 4: Sending to %s: %s", item.source, endpoint, unique_filename)
+        is_stock = item.source.lower() in stock_sources
+
+        if is_stock:
+            target_url = f"{ApiConfig.BASE_URL}/api/assets"
+            self._log.info("[%s] SEED: Registering asset → %s", item.source, target_url)
+            data = aiohttp.FormData()
+            data.add_field(
+                'file',
+                item.raw_bytes if item.raw_bytes else b'',
+                filename=unique_filename,
+                content_type=item.content_type,
+            )
+            # name and type are optional — backend auto-fills from filename
+        else:
+            target_url = f"{ApiConfig.BASE_URL}/api/assets/scan/file"
+            self._log.info("[%s] SCAN: Sending for detection → %s", item.source, target_url)
+            data = aiohttp.FormData()
+            data.add_field(
+                'file',
+                item.raw_bytes if item.raw_bytes else b'',
+                filename=unique_filename,
+                content_type=item.content_type,
+            )
+            data.add_field('url', item.media_url or '')
+            data.add_field('source', item.source or 'crawler')
 
         async with self._session.post(
             target_url,

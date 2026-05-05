@@ -5,9 +5,9 @@ const { z } = require('zod');
 // Backend auto-detects type from MIME if not provided.
 const assetSchema = z.object({
   name: z
-    .string({ required_error: 'name is required' })
-    .min(1, 'name must not be empty')
-    .max(200, 'name must be 200 characters or fewer'),
+    .string()
+    .max(200, 'name must be 200 characters or fewer')
+    .optional(), // auto-filled from filename if not provided
   type: z.enum(['image', 'video'], {
     invalid_type_error: 'type must be "image" or "video"',
   }).optional(),

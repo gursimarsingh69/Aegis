@@ -141,6 +141,28 @@ const assetService = {
   },
 
   // ──────────────────────────────────────────────────────────────────────────
+  // FLOW 2b: Scan a raw file buffer from the crawler pipeline
+  // Converts buffer → base64 and delegates to scanMedia (reuses all Supabase logic)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Scan a raw file buffer against registered assets.
+   * Used by the new crawler flow: Crawler → Backend /scan/file → this method.
+   *
+   * @param {{ fileBuffer: Buffer, filename: string, url: string, source: string }} params
+   * @returns {Promise<object>} Match result
+   */
+  async scanFile({ fileBuffer, filename, url, source }) {
+    return this.scanMedia({
+      url,
+      source,
+      media_type: 'image',
+      processed_data: [fileBuffer.toString('base64')],
+      metadata: { post_url: url },
+    });
+  },
+
+  // ──────────────────────────────────────────────────────────────────────────
   // READ operations (unchanged)
   // ──────────────────────────────────────────────────────────────────────────
 
