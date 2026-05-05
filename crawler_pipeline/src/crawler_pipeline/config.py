@@ -87,7 +87,7 @@ class TwitterConfig:
 # ── Detection API ─────────────────────────────────────────────────────────────
 class ApiConfig:
     BASE_URL: str = _get("DETECTION_API_BASE_URL", "http://localhost:8000")
-    ENDPOINT: str = _get("DETECTION_API_ENDPOINT", "/match")
+    ENDPOINT: str = _get("DETECTION_API_ENDPOINT", "/scan")  # engine uses /scan not /match
     API_KEY: str = _get("DETECTION_API_KEY", "")
 
     @classmethod

@@ -21,7 +21,7 @@ async def verify_semantic_match_with_gemini(suspicious_path, db_assets):
     """
     async with gemini_semaphore:
         if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
-        return None  # Skip if API key not set
+            return None  # Skip if API key not set
 
     max_retries = 5
     base_delay = 10  # Start with 10 seconds
