@@ -7,9 +7,12 @@ const upload = require('../middleware/upload');
 // Accepts multipart/form-data with file + name + type
 router.post('/', upload.single('file'), assetController.create);
 
-// FLOW 2: Scan scraped media (Crawler → Backend → AI → DB)
-// Accepts JSON with processed_data (base64 frames)
+// FLOW 2a: Scan scraped media via JSON payload (legacy)
 router.post('/scan', assetController.scan);
+
+// FLOW 2b: Scan scraped media via raw file upload (Crawler → Backend → AI → DB)
+// Crawler sends multipart/form-data with: file + url + source
+router.post('/scan/file', upload.single('file'), assetController.scanFile);
 
 // Read operations
 router.get('/', assetController.getAll);
